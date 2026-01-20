@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Stargazing VR</title>
+  <meta name="description" content="A WebXR stargazing experience with A-Frame.">
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script>
+    AFRAME.registerComponent('constellation-renderer', {
+      init: function () {
+        const el = this.el;
+        const radius = 20;
+
+        fetch('https://cdn.jsdelivr.net/npm/d3-celestial@0.7.32/data/constellations.lines.json')
+          .then(response => response.json())
+          .then(data => {
+            data.features.forEach(feature => {
+              const firstLine = feature.geometry.coordinates[0];
+              const firstPoint = firstLine[0];
+              const declination = firstPoint[1];
+
+              if (declination > 0) {
+                const constellationEntity = document.createElement('a-entity');
+                const name = feature.id;
+
+                feature.geometry.coordinates.forEach(line => {
+                  for (let i = 0; i < line.length - 1; i++) {
+                    const start = line[i];
+                    const end = line[i+1];
+
+                    const startCoords = this.raDecToCartesian(start[0], start[1], radius);
+                    const endCoords = this.raDecToCartesian(end[0], end[1], radius);
+
+                    const lineEntity = document.createElement('a-entity');
+                    lineEntity.setAttribute('line', {
+                      start: startCoords,
+                      end: endCoords,
+                      color: 'white',
+                      opacity: 0.6
+                    });
+                    constellationEntity.appendChild(lineEntity);
+
+                    const starEntity = document.createElement('a-sphere');
+                    starEntity.setAttribute('position', startCoords);
+                    starEntity.setAttribute('radius', 0.05);
+                    starEntity.setAttribute('color', 'white');
+                    constellationEntity.appendChild(starEntity);
+                  }
+                });
+                
+                const labelEntity = document.createElement('a-text');
+                labelEntity.setAttribute('value', name);
+                const labelPos = this.raDecToCartesian(firstPoint[0], firstPoint[1] + 5, radius);
+                labelEntity.setAttribute('position', labelPos);
+                labelEntity.setAttribute('color', 'yellow');
+                labelEntity.setAttribute('align', 'center');
+                labelEntity.setAttribute('width', 30);
+                labelEntity.setAttribute('scale', '5 5 5');
+                
+                labelEntity.addEventListener('loaded', () => {
+                  labelEntity.object3D.lookAt(0, 0, 0);
+                  labelEntity.object3D.scale.set(1, 1, 1);
+                });
+
+                constellationEntity.appendChild(labelEntity);
+
+                el.appendChild(constellationEntity);
+              }
+            });
+          });
+      },
+
+      raDecToCartesian: function(ra, dec, radius) {
+        const raRad = ra * (Math.PI / 180);
+        const decRad = dec * (Math.PI / 180);
+        const x = radius * Math.cos(decRad) * Math.cos(raRad);
+        const y = radius * Math.sin(decRad);
+        const z = radius * Math.cos(decRad) * Math.sin(raRad) * -1;
+        return { x, y, z };
+      }
+    });
+  </script>
+</head>
+<body>
+  <a-scene>
+    <a-assets>
+      <img id="skyTexture" src="stars2.jpg">
+    </a-assets>
+    <!-- Environment -->
+    <a-sky src="#skyTexture" rotation="0 -90 0"></a-sky>
+
+    <!-- Camera -->
+    <a-camera wasd-controls-enabled="false" look-controls="magicWindowTrackingEnabled: false; touchEnabled: true; mouseEnabled: true"></a-camera>
+    
+    <a-entity constellation-renderer></a-entity>
+  </a-scene>
+</body>
+</html>
