@@ -141,12 +141,13 @@
       <img id="skyTexture" src="stars2.jpg">
     </a-assets>
     <!-- Environment -->
-    <a-sky src="#skyTexture" rotation="0 -90 0" sky-keyboard-controls></a-sky>
+    <a-entity id="sky-container" sky-keyboard-controls>
+      <a-sky src="#skyTexture" rotation="0 -90 0"></a-sky>
+      <a-entity constellation-renderer></a-entity>
+    </a-entity>
 
     <!-- Camera -->
     <a-camera wasd-controls-enabled="false" look-controls="magicWindowTrackingEnabled: false; touchEnabled: true; mouseEnabled: true"></a-camera>
-    
-    <a-entity constellation-renderer></a-entity>
   </a-scene>
 </body>
 </html>
