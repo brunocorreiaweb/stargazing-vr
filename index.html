@@ -10,9 +10,10 @@
         const el = this.el;
         const radius = 20;
 
-        fetch('https://cdn.jsdelivr.net/npm/d3-celestial@0.7.32/data/constellations.lines.json')
-          .then(response => response.json())
-          .then(data => {
+        Promise.all([
+          fetch('https://cdn.jsdelivr.net/npm/d3-celestial@0.7.32/data/constellations.lines.json').then(res => res.json()),
+          fetch('constellations.json').then(res => res.json())
+        ]).then(([data, nameMappings]) => {
             data.features.forEach(feature => {
               const firstLine = feature.geometry.coordinates[0];
               const firstPoint = firstLine[0];
@@ -20,7 +21,8 @@
 
               if (declination > 0) {
                 const constellationEntity = document.createElement('a-entity');
-                const name = feature.id;
+                const abbreviation = feature.id;
+                const fullName = nameMappings[abbreviation] || abbreviation;
 
                 feature.geometry.coordinates.forEach(line => {
                   for (let i = 0; i < line.length - 1; i++) {
@@ -49,7 +51,7 @@
                 
                 // Create the text entity
                 const textEl = document.createElement('a-text');
-                textEl.setAttribute('value', name);
+                textEl.setAttribute('value', fullName);
                 textEl.setAttribute('color', 'white');
                 textEl.setAttribute('align', 'center');
                 textEl.setAttribute('width', '10'); // Adjust size as needed
