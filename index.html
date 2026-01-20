@@ -47,21 +47,27 @@
                   }
                 });
                 
-                const labelEntity = document.createElement('a-text');
-                labelEntity.setAttribute('value', name);
-                const labelPos = this.raDecToCartesian(firstPoint[0], firstPoint[1] + 5, radius);
-                labelEntity.setAttribute('position', labelPos);
-                labelEntity.setAttribute('color', 'yellow');
-                labelEntity.setAttribute('align', 'center');
-                labelEntity.setAttribute('width', 30);
-                labelEntity.setAttribute('scale', '5 5 5');
-                
-                labelEntity.addEventListener('loaded', () => {
-                  labelEntity.object3D.lookAt(0, 0, 0);
-                  labelEntity.object3D.scale.set(1, 1, 1);
-                });
+                // Create the text entity
+                const textEl = document.createElement('a-text');
+                textEl.setAttribute('value', name);
+                textEl.setAttribute('color', 'white');
+                textEl.setAttribute('align', 'center');
+                textEl.setAttribute('width', '10'); // Adjust size as needed
 
-                constellationEntity.appendChild(labelEntity);
+                const labelPos = this.raDecToCartesian(firstPoint[0], firstPoint[1] + 5, radius);
+                
+                // 1. Set Position
+                textEl.object3D.position.set(labelPos.x, labelPos.y, labelPos.z);
+
+                // 2. Add to scene immediately so object3D transforms work
+                constellationEntity.appendChild(textEl);
+
+                // 3. Force Look At Center
+                textEl.object3D.lookAt(0, 0, 0);
+
+                // 4. Fix Mirroring (Flip on X axis)
+                // We multiply the x scale by -1 to un-mirror the text while keeping the rotation
+                textEl.object3D.scale.set(-1, 1, 1);
 
                 el.appendChild(constellationEntity);
               }
