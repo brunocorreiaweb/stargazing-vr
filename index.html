@@ -86,6 +86,53 @@
         return { x, y, z };
       }
     });
+
+    AFRAME.registerComponent('sky-keyboard-controls', {
+      schema: {
+        rotationSpeed: { type: 'number', default: 10 } // degrees per second
+      },
+
+      init: function () {
+        this.keys = {};
+        this.onKeyDown = this.onKeyDown.bind(this);
+        this.onKeyUp = this.onKeyUp.bind(this);
+        window.addEventListener('keydown', this.onKeyDown);
+        window.addEventListener('keyup', this.onKeyUp);
+      },
+
+      remove: function () {
+        window.removeEventListener('keydown', this.onKeyDown);
+        window.removeEventListener('keyup', this.onKeyUp);
+      },
+
+      onKeyDown: function (evt) {
+        this.keys[evt.key] = true;
+      },
+
+      onKeyUp: function (evt) {
+        this.keys[evt.key] = false;
+      },
+
+      tick: function (time, timeDelta) {
+        const rotation = this.el.getAttribute('rotation');
+        const delta = (this.data.rotationSpeed * timeDelta) / 1000;
+
+        if (this.keys['ArrowLeft']) {
+          rotation.y += delta;
+        }
+        if (this.keys['ArrowRight']) {
+          rotation.y -= delta;
+        }
+        if (this.keys['ArrowUp']) {
+          rotation.x += delta;
+        }
+        if (this.keys['ArrowDown']) {
+          rotation.x -= delta;
+        }
+
+        this.el.setAttribute('rotation', rotation);
+      }
+    });
   </script>
 </head>
 <body>
@@ -94,7 +141,7 @@
       <img id="skyTexture" src="stars2.jpg">
     </a-assets>
     <!-- Environment -->
-    <a-sky src="#skyTexture" rotation="0 -90 0"></a-sky>
+    <a-sky src="#skyTexture" rotation="0 -90 0" sky-keyboard-controls></a-sky>
 
     <!-- Camera -->
     <a-camera wasd-controls-enabled="false" look-controls="magicWindowTrackingEnabled: false; touchEnabled: true; mouseEnabled: true"></a-camera>
