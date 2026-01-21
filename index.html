@@ -133,6 +133,49 @@
         this.el.setAttribute('rotation', rotation);
       }
     });
+
+    AFRAME.registerComponent('sky-joystick-controls', {
+      schema: {
+        rotationSpeed: { type: 'number', default: 10 }, // degrees per second
+        deadZone: { type: 'number', default: 0.2 } // dead zone for joystick
+      },
+
+      init: function () {
+        this.gamepad = null;
+      },
+
+      tick: function (time, timeDelta) {
+        // Always poll for the gamepad
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        this.gamepad = null;
+        for (let i = 0; i < gamepads.length; i++) {
+          if (gamepads[i]) {
+            this.gamepad = gamepads[i];
+            break; // Use the first available gamepad
+          }
+        }
+
+        if (!this.gamepad) {
+          return; // No gamepad available for this frame
+        }
+
+        const rotation = this.el.getAttribute('rotation');
+        const delta = (this.data.rotationSpeed * timeDelta) / 1000;
+
+        // Standard Gamepad mapping: axes[0] is left stick horizontal, axes[1] is left stick vertical
+        const horizontalAxis = this.gamepad.axes.length > 0 ? this.gamepad.axes[0] : 0;
+        const verticalAxis = this.gamepad.axes.length > 1 ? this.gamepad.axes[1] : 0;
+
+        if (Math.abs(horizontalAxis) > this.data.deadZone) {
+          rotation.y -= delta * horizontalAxis;
+        }
+        if (Math.abs(verticalAxis) > this.data.deadZone) {
+          rotation.x += delta * verticalAxis;
+        }
+
+        this.el.setAttribute('rotation', rotation);
+      }
+    });
   </script>
 </head>
 <body>
@@ -141,7 +184,7 @@
       <img id="skyTexture" src="stars2.jpg">
     </a-assets>
     <!-- Environment -->
-    <a-entity id="sky-container" sky-keyboard-controls>
+    <a-entity id="sky-container" sky-keyboard-controls sky-joystick-controls>
       <a-sky src="#skyTexture" rotation="0 -90 0"></a-sky>
       <a-entity constellation-renderer></a-entity>
     </a-entity>
