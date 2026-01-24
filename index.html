@@ -4,6 +4,20 @@
   <title>Stargazing VR</title>
   <meta name="description" content="A WebXR stargazing experience with A-Frame.">
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    #mute-button {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      border: 1px solid white;
+      padding: 10px;
+      cursor: pointer;
+      font-family: sans-serif;
+    }
+  </style>
   <script>
     AFRAME.registerComponent('constellation-renderer', {
       init: function () {
@@ -179,6 +193,7 @@
   <a-scene>
     <a-assets>
       <img id="skyTexture" src="stars2.jpg">
+      <audio id="background-music" src="743612_16085323-lq.mp3" preload="auto" loop></audio>
     </a-assets>
     <!-- Environment -->
     <a-entity id="sky-container" sky-keyboard-controls sky-joystick-controls>
@@ -189,5 +204,47 @@
     <!-- Camera -->
     <a-camera wasd-controls-enabled="false" look-controls="magicWindowTrackingEnabled: false; touchEnabled: true; mouseEnabled: true"></a-camera>
   </a-scene>
+  <button id="mute-button">Mute</button>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const music = document.getElementById('background-music');
+      const muteButton = document.getElementById('mute-button');
+      const scene = document.querySelector('a-scene');
+
+      function startMusic() {
+        const playPromise = music.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            console.error('Music playback failed:', error);
+          });
+        }
+        // Remove this listener so it only fires once.
+        window.removeEventListener('mousedown', startMusic);
+        window.removeEventListener('keydown', startMusic);
+        window.removeEventListener('touchstart', startMusic);
+      }
+
+      // A user interaction is required to start audio.
+      window.addEventListener('mousedown', startMusic);
+      window.addEventListener('keydown', startMusic);
+      window.addEventListener('touchstart', startMusic);
+
+      muteButton.addEventListener('click', (event) => {
+        event.stopPropagation(); // Prevent the click from also triggering the window listener
+        music.muted = !music.muted;
+        muteButton.textContent = music.muted ? 'Unmute' : 'Mute';
+      });
+
+      if (scene) {
+        scene.addEventListener('enter-vr', () => {
+          muteButton.style.display = 'none';
+        });
+        scene.addEventListener('exit-vr', () => {
+          muteButton.style.display = 'block';
+        });
+      }
+    });
+  </script>
 </body>
 </html>
