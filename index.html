@@ -1,250 +1,120 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Stargazing VR</title>
-  <meta name="description" content="A WebXR stargazing experience with A-Frame.">
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <style>
-    #mute-button {
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      z-index: 1000;
-      background: rgba(0, 0, 0, 0.5);
-      color: white;
-      border: 1px solid white;
-      padding: 10px;
-      cursor: pointer;
-      font-family: sans-serif;
-    }
-  </style>
-  <script>
-    AFRAME.registerComponent('constellation-renderer', {
-      init: function () {
-        const el = this.el;
-        const radius = 20;
-
-        Promise.all([
-          fetch('https://cdn.jsdelivr.net/npm/d3-celestial@0.7.32/data/constellations.lines.json').then(res => res.json()),
-          fetch('constellations.json').then(res => res.json())
-        ]).then(([data, nameMappings]) => {
-            data.features.forEach(feature => {
-              const firstLine = feature.geometry.coordinates[0];
-              const firstPoint = firstLine[0];
-              
-              const constellationEntity = document.createElement('a-entity');
-              const abbreviation = feature.id;
-              const fullName = nameMappings[abbreviation] || abbreviation;
-
-              feature.geometry.coordinates.forEach(line => {
-                for (let i = 0; i < line.length - 1; i++) {
-                  const start = line[i];
-                  const end = line[i+1];
-
-                  const startCoords = this.raDecToCartesian(start[0], start[1], radius);
-                  const endCoords = this.raDecToCartesian(end[0], end[1], radius);
-
-                  const lineEntity = document.createElement('a-entity');
-                  lineEntity.setAttribute('line', {
-                    start: startCoords,
-                    end: endCoords,
-                    color: 'white',
-                    opacity: 0.6
-                  });
-                  constellationEntity.appendChild(lineEntity);
-
-                  const starEntity = document.createElement('a-sphere');
-                  starEntity.setAttribute('position', startCoords);
-                  starEntity.setAttribute('radius', 0.05);
-                  starEntity.setAttribute('color', 'white');
-                  constellationEntity.appendChild(starEntity);
-                }
-              });
-              
-              // Create the text entity
-              const textEl = document.createElement('a-text');
-              textEl.setAttribute('value', fullName);
-              textEl.setAttribute('color', 'white');
-              textEl.setAttribute('align', 'center');
-              textEl.setAttribute('width', '10'); // Adjust size as needed
-
-              const labelPos = this.raDecToCartesian(firstPoint[0], firstPoint[1] + 5, radius);
-              
-              // 1. Set Position
-              textEl.object3D.position.set(labelPos.x, labelPos.y, labelPos.z);
-
-              // 2. Add to scene immediately so object3D transforms work
-              constellationEntity.appendChild(textEl);
-
-              // 3. Force Look At Center
-              textEl.object3D.lookAt(0, 0, 0);
-
-              // 4. Fix Mirroring (Flip on X axis)
-              // We multiply the x scale by -1 to un-mirror the text while keeping the rotation
-              textEl.object3D.scale.set(1, 1, 1);
-
-              el.appendChild(constellationEntity);
-            });
-          });
-      },
-
-      raDecToCartesian: function(ra, dec, radius) {
-        const raRad = ra * (Math.PI / 180);
-        const decRad = dec * (Math.PI / 180);
-        const x = radius * Math.cos(decRad) * Math.cos(raRad);
-        const y = radius * Math.sin(decRad);
-        const z = radius * Math.cos(decRad) * Math.sin(raRad) * -1;
-        return { x, y, z };
-      }
-    });
-
-    AFRAME.registerComponent('sky-keyboard-controls', {
-      schema: {
-        rotationSpeed: { type: 'number', default: 10 } // degrees per second
-      },
-
-      init: function () {
-        this.keys = {};
-        this.onKeyDown = this.onKeyDown.bind(this);
-        this.onKeyUp = this.onKeyUp.bind(this);
-        window.addEventListener('keydown', this.onKeyDown);
-        window.addEventListener('keyup', this.onKeyUp);
-      },
-
-      remove: function () {
-        window.removeEventListener('keydown', this.onKeyDown);
-        window.removeEventListener('keyup', this.onKeyUp);
-      },
-
-      onKeyDown: function (evt) {
-        this.keys[evt.key] = true;
-      },
-
-      onKeyUp: function (evt) {
-        this.keys[evt.key] = false;
-      },
-
-      tick: function (time, timeDelta) {
-        const rotation = this.el.getAttribute('rotation');
-        const delta = (this.data.rotationSpeed * timeDelta) / 1000;
-
-        if (this.keys['ArrowLeft']) {
-          rotation.y += delta;
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Constellation Observer 2.0 - A Tribute</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
         }
-        if (this.keys['ArrowRight']) {
-          rotation.y -= delta;
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
-        if (this.keys['ArrowUp']) {
-          rotation.x += delta;
+        h1, h2 {
+            text-align: center;
         }
-        if (this.keys['ArrowDown']) {
-          rotation.x -= delta;
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
         }
-
-        this.el.setAttribute('rotation', rotation);
-      }
-    });
-
-    AFRAME.registerComponent('sky-joystick-controls', {
-      schema: {
-        rotationSpeed: { type: 'number', default: 10 }, // degrees per second
-        deadZone: { type: 'number', default: 0.2 } // dead zone for joystick
-      },
-
-      init: function () {
-        this.gamepad = null;
-      },
-
-      tick: function (time, timeDelta) {
-        // Always poll for the gamepad
-        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-        this.gamepad = null;
-        for (let i = 0; i < gamepads.length; i++) {
-          if (gamepads[i]) {
-            this.gamepad = gamepads[i];
-            break; // Use the first available gamepad
-          }
+        .app-button {
+            display: inline-block;
+            background-color: #007bff;
+            color: #fff;
+            padding: 15px 30px;
+            text-decoration: none;
+            font-size: 1.2em;
+            border-radius: 5px;
+            transition: background-color 0.3s;
         }
-
-        if (!this.gamepad) {
-          return; // No gamepad available for this frame
+        .app-button:hover {
+            background-color: #0056b3;
         }
-
-        const rotation = this.el.getAttribute('rotation');
-        const delta = (this.data.rotationSpeed * timeDelta) / 1000;
-
-        // Standard Gamepad mapping: axes[0] is left stick horizontal, axes[1] is left stick vertical
-        const horizontalAxis = this.gamepad.axes.length > 0 ? this.gamepad.axes[0] : 0;
-        const verticalAxis = this.gamepad.axes.length > 1 ? this.gamepad.axes[1] : 0;
-
-        if (Math.abs(horizontalAxis) > this.data.deadZone) {
-          rotation.y -= delta * horizontalAxis;
+        .qr-section {
+            text-align: center;
+            margin-top: 40px;
         }
-        if (Math.abs(verticalAxis) > this.data.deadZone) {
-          rotation.x += delta * verticalAxis;
+        .links-section ul {
+            list-style: none;
+            padding: 0;
         }
-
-        this.el.setAttribute('rotation', rotation);
-      }
-    });
-  </script>
+        .links-section li {
+            margin-bottom: 10px;
+        }
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 0.9em;
+            color: #777;
+        }
+        /* Responsive YouTube embed */
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            height: 0;
+            overflow: hidden;
+            max-width: 100%;
+            background: #000;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+    </style>
 </head>
 <body>
-  <a-scene>
-    <a-assets>
-      <img id="skyTexture" src="stars2.jpg">
-      <audio id="background-music" src="743612_16085323-lq.mp3" preload="auto" loop></audio>
-    </a-assets>
-    <!-- Environment -->
-    <a-entity id="sky-container" sky-keyboard-controls sky-joystick-controls>
-      <a-sky src="#skyTexture" rotation="0 -90 0"></a-sky>
-      <a-entity constellation-renderer></a-entity>
-    </a-entity>
+    <div class="container">
+        <h1>Constellation Observer 2.0</h1>
+        
+        <h2>The Story</h2>
+        <p>This project is a tribute to my Dad's invention, a chair to help observe the stars. My Dad in the early 90s invented a "chair" to help observe the stars. It was a car seat on top of a metallic structure with some rotors and a stand for binoculars, so the user can just be seated holding a remote to control the chair and watch the stars. He used to show this in public schools as a science project but you can't observe stars at day time so he added some early type of goggles that connect to a laptop/pc and used a constellation program so you could simulate watching the night sky indoors.</p>
+        
+        <div class="video-container">
+            <iframe src="https://www.youtube.com/embed/18DQYdQLYM0" allowfullscreen></iframe>
+        </div>
 
-    <!-- Camera -->
-    <a-camera wasd-controls-enabled="false" look-controls="magicWindowTrackingEnabled: false; touchEnabled: true; mouseEnabled: true"></a-camera>
-  </a-scene>
-  <button id="mute-button">Mute</button>
+        <div class="button-container">
+            <a href="app.html" class="app-button">Enter the Star Field</a>
+        </div>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const music = document.getElementById('background-music');
-      const muteButton = document.getElementById('mute-button');
-      const scene = document.querySelector('a-scene');
+        <h2>How to Use</h2>
+        <p>You can look around by moving your device. For a more immersive experience, use a VR headset like Google Cardboard. You can also connect a Bluetooth joystick to your phone to control the view.</p>
 
-      function startMusic() {
-        const playPromise = music.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(error => {
-            console.error('Music playback failed:', error);
-          });
-        }
-        // Remove this listener so it only fires once.
-        window.removeEventListener('mousedown', startMusic);
-        window.removeEventListener('keydown', startMusic);
-        window.removeEventListener('touchstart', startMusic);
-      }
+        <div class="qr-section">
+            <h3>Access on your Phone</h3>
+            <p>Scan this QR code with your phone's camera to open the app directly.</p>
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=sky.dev-tools.com/app.html" alt="QR code to launch the app">
+        </div>
 
-      // A user interaction is required to start audio.
-      window.addEventListener('mousedown', startMusic);
-      window.addEventListener('keydown', startMusic);
-      window.addEventListener('touchstart', startMusic);
+        <div class="links-section">
+            <h2>Resources</h2>
+            <ul>
+                <li><strong>Buy a VR Headset:</strong></li>
+                <li><a href="https://www.worten.pt/produtos/oculos-de-realidade-virtual-3d-para-android-e-ios-mrkean-5609711011609" target="_blank">Worten (Portugal)</a></li>
+                <li><a href="https://www.amazon.com/s?k=Google+Cardboard+V2" target="_blank">Amazon</a></li>
+                <li><strong>Build your own:</strong> <a href="https://developers.google.com/cardboard/manufacturers" target="_blank">Google Cardboard Manufacturer's Guide</a></li>
+            </ul>
+        </div>
 
-      muteButton.addEventListener('click', (event) => {
-        event.stopPropagation(); // Prevent the click from also triggering the window listener
-        music.muted = !music.muted;
-        muteButton.textContent = music.muted ? 'Unmute' : 'Mute';
-      });
-
-      if (scene) {
-        scene.addEventListener('enter-vr', () => {
-          muteButton.style.display = 'none';
-        });
-        scene.addEventListener('exit-vr', () => {
-          muteButton.style.display = 'block';
-        });
-      }
-    });
-  </script>
+        <footer>
+            <p>A project inspired by Fernando Correia. You can find him on <a href="https://www.facebook.com/fernando.correia.94?locale=pt_PT" target="_blank">Facebook</a>.</p>
+        </footer>
+    </div>
 </body>
 </html>
