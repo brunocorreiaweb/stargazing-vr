@@ -17,62 +17,59 @@
             data.features.forEach(feature => {
               const firstLine = feature.geometry.coordinates[0];
               const firstPoint = firstLine[0];
-              const declination = firstPoint[1];
+              
+              const constellationEntity = document.createElement('a-entity');
+              const abbreviation = feature.id;
+              const fullName = nameMappings[abbreviation] || abbreviation;
 
-              if (declination > 0) {
-                const constellationEntity = document.createElement('a-entity');
-                const abbreviation = feature.id;
-                const fullName = nameMappings[abbreviation] || abbreviation;
+              feature.geometry.coordinates.forEach(line => {
+                for (let i = 0; i < line.length - 1; i++) {
+                  const start = line[i];
+                  const end = line[i+1];
 
-                feature.geometry.coordinates.forEach(line => {
-                  for (let i = 0; i < line.length - 1; i++) {
-                    const start = line[i];
-                    const end = line[i+1];
+                  const startCoords = this.raDecToCartesian(start[0], start[1], radius);
+                  const endCoords = this.raDecToCartesian(end[0], end[1], radius);
 
-                    const startCoords = this.raDecToCartesian(start[0], start[1], radius);
-                    const endCoords = this.raDecToCartesian(end[0], end[1], radius);
+                  const lineEntity = document.createElement('a-entity');
+                  lineEntity.setAttribute('line', {
+                    start: startCoords,
+                    end: endCoords,
+                    color: 'white',
+                    opacity: 0.6
+                  });
+                  constellationEntity.appendChild(lineEntity);
 
-                    const lineEntity = document.createElement('a-entity');
-                    lineEntity.setAttribute('line', {
-                      start: startCoords,
-                      end: endCoords,
-                      color: 'white',
-                      opacity: 0.6
-                    });
-                    constellationEntity.appendChild(lineEntity);
+                  const starEntity = document.createElement('a-sphere');
+                  starEntity.setAttribute('position', startCoords);
+                  starEntity.setAttribute('radius', 0.05);
+                  starEntity.setAttribute('color', 'white');
+                  constellationEntity.appendChild(starEntity);
+                }
+              });
+              
+              // Create the text entity
+              const textEl = document.createElement('a-text');
+              textEl.setAttribute('value', fullName);
+              textEl.setAttribute('color', 'white');
+              textEl.setAttribute('align', 'center');
+              textEl.setAttribute('width', '10'); // Adjust size as needed
 
-                    const starEntity = document.createElement('a-sphere');
-                    starEntity.setAttribute('position', startCoords);
-                    starEntity.setAttribute('radius', 0.05);
-                    starEntity.setAttribute('color', 'white');
-                    constellationEntity.appendChild(starEntity);
-                  }
-                });
-                
-                // Create the text entity
-                const textEl = document.createElement('a-text');
-                textEl.setAttribute('value', fullName);
-                textEl.setAttribute('color', 'white');
-                textEl.setAttribute('align', 'center');
-                textEl.setAttribute('width', '10'); // Adjust size as needed
+              const labelPos = this.raDecToCartesian(firstPoint[0], firstPoint[1] + 5, radius);
+              
+              // 1. Set Position
+              textEl.object3D.position.set(labelPos.x, labelPos.y, labelPos.z);
 
-                const labelPos = this.raDecToCartesian(firstPoint[0], firstPoint[1] + 5, radius);
-                
-                // 1. Set Position
-                textEl.object3D.position.set(labelPos.x, labelPos.y, labelPos.z);
+              // 2. Add to scene immediately so object3D transforms work
+              constellationEntity.appendChild(textEl);
 
-                // 2. Add to scene immediately so object3D transforms work
-                constellationEntity.appendChild(textEl);
+              // 3. Force Look At Center
+              textEl.object3D.lookAt(0, 0, 0);
 
-                // 3. Force Look At Center
-                textEl.object3D.lookAt(0, 0, 0);
+              // 4. Fix Mirroring (Flip on X axis)
+              // We multiply the x scale by -1 to un-mirror the text while keeping the rotation
+              textEl.object3D.scale.set(1, 1, 1);
 
-                // 4. Fix Mirroring (Flip on X axis)
-                // We multiply the x scale by -1 to un-mirror the text while keeping the rotation
-                textEl.object3D.scale.set(1, 1, 1);
-
-                el.appendChild(constellationEntity);
-              }
+              el.appendChild(constellationEntity);
             });
           });
       },
