@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Stargazing VR</title>
+  <meta name="description" content="A WebXR stargazing experience with A-Frame.">
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    #mute-button {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      border: 1px solid white;
+      padding: 10px;
+      cursor: pointer;
+      font-family: sans-serif;
+    }
+  </style>
+  <script>
+    AFRAME.registerComponent('constellation-renderer', {
+      init: function () {
+        const el = this.el;
+        const radius = 20;
+
+        Promise.all([
+          fetch('https://cdn.jsdelivr.net/npm/d3-celestial@0.7.32/data/constellations.lines.json').then(res => res.json()),
+          fetch('constellations.json').then(res => res.json())
+        ]).then(([data, nameMappings]) => {
+            data.features.forEach(feature => {
+              const firstLine = feature.geometry.coordinates[0];
+              const firstPoint = firstLine[0];
+              
+              const constellationEntity = document.createElement('a-entity');
+              const abbreviation = feature.id;
+              const fullName = nameMappings[abbreviation] || abbreviation;
+
+              feature.geometry.coordinates.forEach(line => {
+                for (let i = 0; i < line.length - 1; i++) {
+                  const start = line[i];
+                  const end = line[i+1];
+
+                  const startCoords = this.raDecToCartesian(start[0], start[1], radius);
+                  const endCoords = this.raDecToCartesian(end[0], end[1], radius);
+
+                  const lineEntity = document.createElement('a-entity');
+                  lineEntity.setAttribute('line', {
+                    start: startCoords,
+                    end: endCoords,
+                    color: 'white',
+                    opacity: 0.6
+                  });
+                  constellationEntity.appendChild(lineEntity);
+
+                  const starEntity = document.createElement('a-sphere');
+                  starEntity.setAttribute('position', startCoords);
+                  starEntity.setAttribute('radius', 0.05);
+                  starEntity.setAttribute('color', 'white');
+                  constellationEntity.appendChild(starEntity);
+                }
+              });
+              
+              // Create the text entity
+              const textEl = document.createElement('a-text');
+              textEl.setAttribute('value', fullName);
+              textEl.setAttribute('color', 'white');
+              textEl.setAttribute('align', 'center');
+              textEl.setAttribute('width', '10'); // Adjust size as needed
+
+              const labelPos = this.raDecToCartesian(firstPoint[0], firstPoint[1] + 5, radius);
+              
+              // 1. Set Position
+              textEl.object3D.position.set(labelPos.x, labelPos.y, labelPos.z);
+
+              // 2. Add to scene immediately so object3D transforms work
+              constellationEntity.appendChild(textEl);
+
+              // 3. Force Look At Center
+              textEl.object3D.lookAt(0, 0, 0);
+
+              // 4. Fix Mirroring (Flip on X axis)
+              // We multiply the x scale by -1 to un-mirror the text while keeping the rotation
+              textEl.object3D.scale.set(1, 1, 1);
+
+              el.appendChild(constellationEntity);
+            });
+          });
+      },
+
+      raDecToCartesian: function(ra, dec, radius) {
+        const raRad = ra * (Math.PI / 180);
+        const decRad = dec * (Math.PI / 180);
+        const x = radius * Math.cos(decRad) * Math.cos(raRad);
+        const y = radius * Math.sin(decRad);
+        const z = radius * Math.cos(decRad) * Math.sin(raRad) * -1;
+        return { x, y, z };
+      }
+    });
+
+    AFRAME.registerComponent('sky-keyboard-controls', {
+      schema: {
+        rotationSpeed: { type: 'number', default: 10 } // degrees per second
+      },
+
+      init: function () {
+        this.keys = {};
+        this.onKeyDown = this.onKeyDown.bind(this);
+        this.onKeyUp = this.onKeyUp.bind(this);
+        window.addEventListener('keydown', this.onKeyDown);
+        window.addEventListener('keyup', this.onKeyUp);
+      },
+
+      remove: function () {
+        window.removeEventListener('keydown', this.onKeyDown);
+        window.removeEventListener('keyup', this.onKeyUp);
+      },
+
+      onKeyDown: function (evt) {
+        this.keys[evt.key] = true;
+      },
+
+      onKeyUp: function (evt) {
+        this.keys[evt.key] = false;
+      },
+
+      tick: function (time, timeDelta) {
+        const rotation = this.el.getAttribute('rotation');
+        const delta = (this.data.rotationSpeed * timeDelta) / 1000;
+
+        if (this.keys['ArrowLeft']) {
+          rotation.y += delta;
+        }
+        if (this.keys['ArrowRight']) {
+          rotation.y -= delta;
+        }
+        if (this.keys['ArrowUp']) {
+          rotation.x += delta;
+        }
+        if (this.keys['ArrowDown']) {
+          rotation.x -= delta;
+        }
+
+        this.el.setAttribute('rotation', rotation);
+      }
+    });
+
+    AFRAME.registerComponent('sky-joystick-controls', {
+      schema: {
+        rotationSpeed: { type: 'number', default: 10 }, // degrees per second
+        deadZone: { type: 'number', default: 0.2 } // dead zone for joystick
+      },
+
+      init: function () {
+        this.gamepad = null;
+      },
+
+      tick: function (time, timeDelta) {
+        // Always poll for the gamepad
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        this.gamepad = null;
+        for (let i = 0; i < gamepads.length; i++) {
+          if (gamepads[i]) {
+            this.gamepad = gamepads[i];
+            break; // Use the first available gamepad
+          }
+        }
+
+        if (!this.gamepad) {
+          return; // No gamepad available for this frame
+        }
+
+        const rotation = this.el.getAttribute('rotation');
+        const delta = (this.data.rotationSpeed * timeDelta) / 1000;
+
+        // Standard Gamepad mapping: axes[0] is left stick horizontal, axes[1] is left stick vertical
+        const horizontalAxis = this.gamepad.axes.length > 0 ? this.gamepad.axes[0] : 0;
+        const verticalAxis = this.gamepad.axes.length > 1 ? this.gamepad.axes[1] : 0;
+
+        if (Math.abs(horizontalAxis) > this.data.deadZone) {
+          rotation.y -= delta * horizontalAxis;
+        }
+        if (Math.abs(verticalAxis) > this.data.deadZone) {
+          rotation.x += delta * verticalAxis;
+        }
+
+        this.el.setAttribute('rotation', rotation);
+      }
+    });
+  </script>
+</head>
+<body>
+  <a-scene>
+    <a-assets>
+      <img id="skyTexture" src="stars2.jpg">
+      <audio id="background-music" src="743612_16085323-lq.mp3" preload="auto" loop></audio>
+    </a-assets>
+    <!-- Environment -->
+    <a-entity id="sky-container" sky-keyboard-controls sky-joystick-controls>
+      <a-sky src="#skyTexture" rotation="0 -90 0"></a-sky>
+      <a-entity constellation-renderer></a-entity>
+    </a-entity>
+
+    <!-- Camera -->
+    <a-camera wasd-controls-enabled="false" look-controls="magicWindowTrackingEnabled: false; touchEnabled: true; mouseEnabled: true"></a-camera>
+  </a-scene>
+  <button id="mute-button">Mute</button>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const music = document.getElementById('background-music');
+      const muteButton = document.getElementById('mute-button');
+      const scene = document.querySelector('a-scene');
+
+      function startMusic() {
+        const playPromise = music.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            console.error('Music playback failed:', error);
+          });
+        }
+        // Remove this listener so it only fires once.
+        window.removeEventListener('mousedown', startMusic);
+        window.removeEventListener('keydown', startMusic);
+        window.removeEventListener('touchstart', startMusic);
+      }
+
+      // A user interaction is required to start audio.
+      window.addEventListener('mousedown', startMusic);
+      window.addEventListener('keydown', startMusic);
+      window.addEventListener('touchstart', startMusic);
+
+      muteButton.addEventListener('click', (event) => {
+        event.stopPropagation(); // Prevent the click from also triggering the window listener
+        music.muted = !music.muted;
+        muteButton.textContent = music.muted ? 'Unmute' : 'Mute';
+      });
+
+      if (scene) {
+        scene.addEventListener('enter-vr', () => {
+          muteButton.style.display = 'none';
+        });
+        scene.addEventListener('exit-vr', () => {
+          muteButton.style.display = 'block';
+        });
+      }
+    });
+  </script>
+</body>
+</html>
